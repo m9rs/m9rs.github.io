@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React Chess Game</title>
+    <style>
+      body {
+        background-color: #d69d42; /* Beige-like chessboard background color */
+        margin: 0;
+        padding: 0;
+        font-family: Arial, Helvetica, sans-serif; /* Retro font */
+      }
+      table {
+        border-collapse: collapse;
+        margin: 40px auto; /* Center the board */
+        border: 5px solid #8B4513; /* Dark brown color for the border */
+        border-radius: 10px; /* Rounded corners */
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); /* Shadow for depth */
+        background-color: #deb887; /* Wood-like background color */
+      }
+      td {
+        width: 60px;
+        height: 60px;
+        text-align: center;
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      .white {
+        background-color: #770000; /* Dark red color for white squares */
+      }
+      .black {
+        background-color: #4f0000; /* Dark red color for black squares */
+      }
+      .selected {
+        outline: 2px solid #2980b9; /* Blue outline for selected square */
+      }
+      .hud {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 1em; /* Smaller font size */
+        color: #34495e; /* Darker color for contrast */
+      }
+      img {
+        width: 100%;
+        height: auto;
+      }
+      button {
+        background-color: #b5651d; /* Brown color for the button */
+        color: white;
+        border: none;
+        padding: 5px 10px; /* Smaller button size */
+        font-size: 1em; /* Match font size with display text */
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        transition: background-color 0.3s; /* Removed scaling effect */
+      }
+      button:hover {
+        background-color: #8b4513; /* Darker brown on hover */
+      }
+    </style>
+  </head>
+  
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+
+    <script>
+      const pieceImages = {
+        r: "images/rook_black.png",
+        n: "images/knight_black.png",
+        b: "images/bishop_black.png",
+        q: "images/queen_black.png",
+        k: "images/king_black.png",
+        p: "images/pawn_black.png",
+        R: "images/rook_white.png",
+        N: "images/knight_white.png",
+        B: "images/bishop_white.png",
+        Q: "images/queen_white.png",
+        K: "images/king_white.png",
+        P: "images/pawn_white.png",
+      };
+
+      const initialBoard = [
+        ["r", "n", "b", "q", "k", "b", "n", "r"],
+        ["p", "p", "p", "p", "p", "p", "p", "p"],
+        ["", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", ""],
+        ["P", "P", "P", "P", "P", "P", "P", "P"],
+        ["R", "N", "B", "Q", "K", "B", "N", "R"],
+      ];
+
+      function ChessGame() {
+        const [board, setBoard] = React.useState(initialBoard);
+        const [selected, setSelected] = React.useState(null);
+        const [turn, setTurn] = React.useState("white");
+        const [gameOver, setGameOver] = React.useState(false);
+
+        // Load the victory audio
+        const victoryAudio = new Audio('victory.mp3'); // Ensure 'victory.mp3' is in the same directory as your HTML file
+
+        function handleClick(row, col) {
+          if (gameOver) return;
+
+          const piece = board[row][col];
+
+          if (selected && selected[0] === row && selected[1] === col) {
+            setSelected(null); // Deselect the piece
+            return;
+          }
+
+          if (selected) {
+            const [selectedRow, selectedCol] = selected;
+            const selectedPiece = board[selectedRow][selectedCol];
+
+            if (isValidMove(selectedPiece, selectedRow, selectedCol, row, col)) {
+              const newBoard = board.map((r) => r.slice());
+              newBoard[row][col] = selectedPiece;
+              newBoard[selectedRow][selectedCol] = "";
+
+              setBoard(newBoard);
+              setSelected(null);
+
+              if (piece.toLowerCase() === "k") {
+                setGameOver(true);
+                victoryCelebration(); // Trigger confetti and audio
+              } else {
+                setTurn(turn === "white" ? "black" : "white");
+              }
+            } else {
+              alert("Invalid move. Try again.");
+            }
+          } else if (isCorrectTurn(piece)) {
+            setSelected([row, col]);
+          }
+        }
+
+        function isValidMove(piece, fromRow, fromCol, toRow, toCol) {
+          if (!piece) return false;
+
+          const diffRow = Math.abs(toRow - fromRow);
+          const diffCol = Math.abs(toCol - fromCol);
+          const targetPiece = board[toRow][toCol];
+
+          switch (piece.toLowerCase()) {
+            case "p":
+              if (targetPiece) {
+                return diffRow === 1 && diffCol === 1 && isOpponentPiece(targetPiece, piece);
+              } else {
+                if (piece === "P" && fromRow === 6) {
+                  return (diffRow === 2 && diffCol === 0 && toRow < fromRow) || (diffRow === 1 && diffCol === 0 && toRow < fromRow);
+                } else if (piece === "p" && fromRow === 1) {
+                  return (diffRow === 2 && diffCol === 0 && toRow > fromRow) || (diffRow === 1 && diffCol === 0 && toRow > fromRow);
+                } else {
+                  return diffRow === 1 && diffCol === 0 && ((piece === "P" && toRow < fromRow) || (piece === "p" && toRow > fromRow));
+                }
+              }
+            case "r":
+              return fromRow === toRow || fromCol === toCol;
+            case "n":
+              return (diffRow === 2 && diffCol === 1) || (diffRow === 1 && diffCol === 2);
+            case "b":
+              return diffRow === diffCol;
+            case "q":
+              return fromRow === toRow || fromCol === toCol || diffRow === diffCol;
+            case "k":
+              return diffRow <= 1 && diffCol <= 1;
+            default:
+              return false;
+          }
+        }
+
+        function isCorrectTurn(piece) {
+          if (!piece) return false;
+          return (turn === "white" && piece === piece.toUpperCase()) || (turn === "black" && piece === piece.toLowerCase());
+        }
+
+        function isOpponentPiece(targetPiece, piece) {
+          return (piece === piece.toUpperCase() && targetPiece === targetPiece.toLowerCase()) ||
+                 (piece === piece.toLowerCase() && targetPiece === targetPiece.toUpperCase());
+        }
+
+        function victoryCelebration() {
+          // Play victory sound
+          victoryAudio.play();
+
+          // Trigger confetti
+          confetti({
+            particleCount: 200,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+
+          alert(`${turn === "white" ? "White" : "Black"} wins!`); // Announce the winner
+        }
+
+        function restartGame() {
+          setBoard(initialBoard);
+          setTurn("white");
+          setSelected(null);
+          setGameOver(false);
+        }
+
+        return React.createElement(
+          "div",
+          null,
+          React.createElement(
+            "table",
+            null,
+            board.map((row, rowIndex) =>
+              React.createElement(
+                "tr",
+                null,
+                row.map((piece, colIndex) =>
+                  React.createElement(
+                    "td",
+                    {
+                      className:
+                        (rowIndex + colIndex) % 2 === 0
+                          ? "white"
+                          : "black" + (selected && selected[0] === rowIndex && selected[1] === colIndex ? " selected" : ""),
+                      onClick: () => handleClick(rowIndex, colIndex),
+                    },
+                    piece
+                      ? React.createElement("img", { src: pieceImages[piece], alt: piece })
+                      : ""
+                  )
+                )
+              )
+            )
+          ),
+          React.createElement(
+            "div",
+            { className: "hud" },
+            gameOver
+              ? React.createElement("h2", null, `${turn === "white" ? "White" : "Black"} wins!`) // Display the winning team
+              : React.createElement("h2", null, `Turn: ${turn === "white" ? "White" : "Black"}`),
+            React.createElement("button", { onClick: restartGame }, "Restart Game")
+          )
+        );
+      }
+
+      ReactDOM.render(React.createElement(ChessGame), document.getElementById("root"));
+    </script>
+  </body>
+</html>
